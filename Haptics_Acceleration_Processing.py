@@ -12,6 +12,7 @@ from scipy.signal import find_peaks
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use('TkAgg')
+from scipy.optimize import curve_fit
 from matplotlib import gridspec
 
 SAMPLE_RATE = 20000
@@ -134,20 +135,10 @@ if __name__ == '__main__':
             axs[2] = fig.add_subplot(gs[2, 0])
             axs[3] = fig.add_subplot(gs[2, 1])
             axs[3].axis('off')
-            data = [
-                ['1','21','21'],
-                ['1', '21', '21'],
-                ['1', '21', '21']
-            ]
-            columns = ['ROI','Opposite X','Opposite Y','Opposite Y']
-            row_labels = ['Frequency (Hz)','90% Rise Time','90% Fall Time']
-            table = axs[3].table(cellText=[['1','21','21']],colLabels = columns,rowLabels = row_labels,loc='center',colColours=np.full(3, 'lavender'))
-            for key, cell in table.get_celld().items():
-                # cell.set_edgecolor('#FFFFFF')
-                # cell.set_facecolor('#636363')
-                cell._text.set_color('black')
-            matplotlib.table.Table(axs[3])
+
+
             fig.subplots_adjust(hspace=.3)
+            fig.set_size_inches(24, 11)
             fig.suptitle(f'Device: {device} |{location} Profile: {profile} | Pulse:{idx+1}/{len(index_array)}')
             axs[0].set(xlabel='Time (ms)', ylabel='Acceleration (G)')
             axs[1].set(xlabel = 'Time (ms)', ylabel = 'Acceleration (G)')
@@ -166,12 +157,70 @@ if __name__ == '__main__':
             yf_y = fft(acc_y[x[0]:x[1]])
             yf_z = fft(acc_z[x[0]:x[1]])
 
+            yf_freq = round(xf[1:N // 2][np.argmax(np.abs(yf[1:N//2]))],1)
+            yfx_freq = round(xf[1:N // 2][np.argmax(np.abs(yf_x[1:N // 2]))], 1)
+            yfy_freq = round(xf[1:N // 2][np.argmax(np.abs(yf_y[1:N // 2]))], 1)
+            yfz_freq = round(xf[1:N // 2][np.argmax(np.abs(yf_z[1:N // 2]))], 1)
+
+            main_acc_peak = round(np.max(abs(main_acc[x[0]:x[1]])),2)
+            accx_peak = round(np.max(abs(acc_x[x[0]:x[1]])), 2)
+            accy_peak = round(np.max(abs(acc_y[x[0]:x[1]])), 2)
+            accz_peak = round(np.max(abs(acc_z[x[0]:x[1]])), 2)
+
+            main_acc_peak_loc = np.argmax(abs(main_acc[x[0]:x[1]]))
+            accx_peak_loc = np.argmax(abs(acc_x[x[0]:x[1]]))
+            accy_peak_loc = np.argmax(abs(acc_y[x[0]:x[1]]))
+            accz_peak_loc = np.argmax(abs(acc_z[x[0]:x[1]]))
+
+            main_acc_90_rise =  round(time_series[x[0]:x[1]][np.argmax(np.abs(main_acc[x[0]:x[1]])>= 0.9*main_acc_peak)] - time_series[x[0]+50],3)
+            accx_90_rise = round(time_series[x[0]:x[1]][np.argmax(np.abs(acc_x[x[0]:x[1]])>= 0.9*accx_peak)] - time_series[x[0]+50],3)
+            accy_90_rise = round(time_series[x[0]:x[1]][np.argmax(np.abs(acc_y[x[0]:x[1]])>= 0.9*accy_peak)] - time_series[x[0]+50],3)
+            accz_90_rise = round(time_series[x[0]:x[1]][np.argmax(np.abs(acc_z[x[0]:x[1]])>= 0.9*accz_peak)] - time_series[x[0]+50],3)
+            length = len(time_series[x[0] + main_acc_peak_loc:x[1]])
+            main_acc_90_fall = -1* round(time_series[x[0]+main_acc_peak_loc:x[1]][np.argmax(
+                np.abs(main_acc[x[0]+main_acc_peak_loc:x[1]])<= 0.9*main_acc_peak)] -
+                                     time_series[x[1] - np.argmax(np.abs(np.flip(main_acc[x[0]:x[1]]))>= 0.1*main_acc_peak)],3)
+
+                # -1* round(time_series[x[0]+main_acc_peak_loc] - time_series[x[1]-(np.argmax(
+                # np.abs(np.flip(main_acc[x[0]+main_acc_peak_loc:x[1]]))>= 0.9*main_acc_peak))],3)
+
+            accx_90_fall = -1* round(time_series[x[0]+accx_peak_loc:x[1]][np.argmax(
+                np.abs(acc_x[x[0]+accx_peak_loc:x[1]])<= 0.9*accx_peak)] -
+                                     time_series[x[1] - np.argmax(np.abs(np.flip(acc_x[x[0]:x[1]]))>= 0.1*accx_peak)],3)
+
+            accy_90_fall = -1* round(time_series[x[0]+accy_peak_loc:x[1]][np.argmax(
+                np.abs(acc_y[x[0]+accy_peak_loc:x[1]])<= 0.9*accy_peak)] -
+                                     time_series[x[1] - np.argmax(np.abs(np.flip(acc_y[x[0]:x[1]]))>= 0.1*accy_peak)],3)
+
+            accz_90_fall = -1* round(time_series[x[0]+accz_peak_loc:x[1]][np.argmax(
+                np.abs(acc_z[x[0]+accz_peak_loc:x[1]])<= 0.9*accz_peak)] -
+                                     time_series[x[1] - np.argmax(np.abs(np.flip(acc_z[x[0]:x[1]]))>= 0.1*accz_peak)],3)
+
+
+            data = [
+                [f'{str(yf_freq)} Hz',f'{str(yfx_freq)} Hz',f'{str(yfy_freq)} Hz',f'{str(yfz_freq)} Hz'],
+                [f'{str(main_acc_peak)} G', f'{str(accx_peak)} G',f'{str(accy_peak)} G', f'{str(accz_peak)} G'],
+                [f'{str(main_acc_90_rise)} ms', f'{str(accx_90_rise)} ms', f'{str(accy_90_rise)} ms',
+                 f'{str(accz_90_rise)} ms'],
+                [f'{str(main_acc_90_fall)} ms', f'{str(accx_90_fall)} ms', f'{str(accy_90_fall)} ms',
+                 f'{str(accz_90_fall)} ms']
+            ]
+            columns = ['ROI','Opposite X','Opposite Y','Opposite Z']
+            row_labels = ['Frequency','Peak Acceleration','90% Rise Time','90% Fall Time']
+            table = axs[3].table(cellText=data,colLabels = columns,rowLabels = row_labels,loc='center',
+                                 colColours=['#DC373C','#419BD7','#55B473','#9B69AA'],cellLoc='center')
+            table.set_fontsize(10)
+            for key, cell in table.get_celld().items():
+                # cell.set_edgecolor('#FFFFFF')
+                # cell.set_facecolor('#636363')
+                cell._text.set_color('black')
             if location == 'South':
                 label = 'ROI X'
             else:
                 label = 'ROI Z'
             axs[0].plot(time_series[start:end], main_acc[start:end], color='#83C8C0')
             axs[0].plot(time_series[x[0]:x[1]], main_acc[x[0]:x[1]], color='#FFDE89')
+
 
             axs[1].plot(time_series[x[0]:x[1]],main_acc[x[0]:x[1]], color='#DC373C',label = label)
             axs[1].plot(time_series[x[0]:x[1]], acc_x[x[0]:x[1]], color='#419BD7', label='Opposite X')
@@ -189,9 +238,15 @@ if __name__ == '__main__':
             axs[2].plot(xf[1:N // 2], np.abs(yf_y[1:N // 2]), color='#55B473')
             axs[2].plot(xf[1:N // 2], np.abs(yf_z[1:N // 2]), color='#9B69AA')
 
-
+            # mng = plt.get_current_fig_manager()
+            # ### works on Ubuntu??? >> did NOT working on windows
+            # # mng.resize(*mng.window.maxsize())
+            # mng.window.state('zoomed')
             # ax.plot(time_series[x[0]:x[1]],main_acc[x[0]:x[1]], color='#DC373C')
-            plt.show()
+            save_file = os.path.join(folder,'processed',f'{name_topLevel}.png')
+            plt.savefig(save_file, bbox_inches='tight',dpi=100)
+            # plt.show()
+
 
 
 

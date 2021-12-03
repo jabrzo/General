@@ -213,4 +213,6 @@ if __name__ == '__main__':
     ax32.legend(title='Temp (C)',loc='upper center', bbox_to_anchor=(0.5, -0.15),
                 ncol=6, handleheight=2, labelspacing=0.01,prop={'size': 8})
 
+    save_file = os.path.join(folder)
+    plt.savefig('sampleFileName.png')
     plt.show()
