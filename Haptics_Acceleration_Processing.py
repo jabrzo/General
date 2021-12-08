@@ -16,11 +16,12 @@ from scipy.optimize import curve_fit
 from matplotlib import gridspec
 
 SAMPLE_RATE = 20000
-
+START_OFFSET = 50
+END_OFFSET = 100
 
 def clipData(data):
-    start = np.argmax(abs(data)>1) - 50
-    end = data.shape[0] - (np.argmax(abs(np.flip(data))>1) - 200)
+    start = np.argmax(abs(data)>1) - 1000
+    end = data.shape[0] - (np.argmax(abs(np.flip(data))>1) - 1000)
 
     return start,end
 
@@ -31,19 +32,23 @@ def splitData(data):
     index_array = []
     start = np.argmax(abs(data)>.75)
     to_check = 'end'
-    for ii in range(start,len(data)):
+    ii = start
+    while ii < len(data):
+    # for ii in range(start,len(data)):
         if to_check == 'end':
-            if all(abs(data[ii:ii+80])<0.4):
+            if all(abs(data[ii:ii+80])<0.4):  #and all(data[ii:ii+30]>0)
                 end = ii
+                ii = ii+40
                 if index_array == []:
-                    index_array = np.array([[start-50,end+50]])
+                    index_array = np.array([[start,end]])
                 else:
-                    index_array = np.vstack((index_array,[start-50,end+100]))
+                    index_array = np.vstack((index_array,[start,end]))
                 to_check = 'start'
         elif to_check == 'start':
-            if abs(data[ii])>1:
+            if abs(data[ii])>.75:
                 start = ii
                 to_check = 'end'
+        ii = ii+1
 
     return index_array
 
@@ -86,9 +91,11 @@ if __name__ == '__main__':
             time_series = main_acc.index.to_numpy(dtype=float)
             main_acc = main_acc.iloc[:,0].to_numpy(dtype=float)
             start,end = clipData(main_acc)
-            acc_x = acc_x.iloc[:,0].to_numpy(dtype=float)
-            acc_y = acc_y.iloc[:,0].to_numpy(dtype=float)
-            acc_z = acc_z.iloc[:,0].to_numpy(dtype=float)
+            main_acc = main_acc[start:end]
+            time_series =  time_series[start:end]
+            acc_x = acc_x.iloc[start:end,0].to_numpy(dtype=float)
+            acc_y = acc_y.iloc[start:end,0].to_numpy(dtype=float)
+            acc_z = acc_z.iloc[start:end,0].to_numpy(dtype=float)
             dxd.close()
 
         index_array = splitData(main_acc)
@@ -101,7 +108,6 @@ if __name__ == '__main__':
 
         # plt.plot(time_series[start:end],main_acc[start:end], color = '#83C8C0')
         print(f'Filename:{os.path.splitext(file)[0]}  Pulses:{len(index_array)}\n')
-        print(index_array)
         name_topLevel = os.path.splitext(file)[0]
         device = name_topLevel.split('_')[0]
         if len(name_topLevel.split('_')) == 2:
@@ -112,141 +118,143 @@ if __name__ == '__main__':
         profile = name_topLevel.split('_')[-1]
 
         for idx,x in enumerate(index_array):
-            peaks = []
-            peaks, _ = find_peaks(main_acc[x[0]:x[1]], height = .02, distance = 30,width=10)
-            peaks_x, _ = find_peaks(acc_x[x[0]:x[1]], height=.02, distance=30, width=10)
-            peaks_y, _ = find_peaks(acc_y[x[0]:x[1]], height=.02, distance=30, width=10)
-            peaks_z, _ = find_peaks(acc_z[x[0]:x[1]], height=.02, distance=30, width=10)
-            peaks = peaks + x[0]
-            peaks_x = peaks_x + x[0]
-            peaks_y = peaks_y + x[0]
-            peaks_z = peaks_z + x[0]
-            # gs = gridspec.GridSpec(3, 1,
-            #                        width_ratios=[1, 2],
-            #                        height_ratios=[4, 1]
-            #
-            axs = [None,None,None,None]
-            fig = plt.figure()
-            gs = fig.add_gridspec(3, 2)
-            # fig, axs = plt.subplots(3)
-            fig.tight_layout()
-            axs[0] = fig.add_subplot(gs[0, :])
-            axs[1] = fig.add_subplot(gs[1, :])
-            axs[2] = fig.add_subplot(gs[2, 0])
-            axs[3] = fig.add_subplot(gs[2, 1])
-            axs[3].axis('off')
+            try:
+                peaks = []
+                peaks, _ = find_peaks(main_acc[x[0]:x[1]], height = .02, distance = 30,width=10)
+                peaks_x, _ = find_peaks(acc_x[x[0]:x[1]], height=.02, distance=30, width=10)
+                peaks_y, _ = find_peaks(acc_y[x[0]:x[1]], height=.02, distance=30, width=10)
+                peaks_z, _ = find_peaks(acc_z[x[0]:x[1]], height=.02, distance=30, width=10)
+                peaks = peaks + x[0]
+                peaks_x = peaks_x + x[0]
+                peaks_y = peaks_y + x[0]
+                peaks_z = peaks_z + x[0]
+
+                axs = [None,None,None,None]
+                fig = plt.figure()
+                gs = fig.add_gridspec(3, 2)
+                # fig, axs = plt.subplots(3)
+                fig.tight_layout()
+                axs[0] = fig.add_subplot(gs[0, :])
+                axs[1] = fig.add_subplot(gs[1, :])
+                axs[2] = fig.add_subplot(gs[2, 0])
+                axs[3] = fig.add_subplot(gs[2, 1])
+                axs[3].axis('off')
 
 
-            fig.subplots_adjust(hspace=.3)
-            fig.set_size_inches(24, 11)
-            fig.suptitle(f'Device: {device} |{location} Profile: {profile} | Pulse:{idx+1}/{len(index_array)}')
-            axs[0].set(xlabel='Time (ms)', ylabel='Acceleration (G)')
-            axs[1].set(xlabel = 'Time (ms)', ylabel = 'Acceleration (G)')
+                fig.subplots_adjust(hspace=.3)
+                fig.set_size_inches(24, 11)
+                fig.suptitle(f'Device: {device} |{location} Profile: {profile} | Pulse:{idx+1}/{len(index_array)}')
+                axs[0].set(xlabel='Time (ms)', ylabel='Acceleration (G)')
+                axs[1].set(xlabel = 'Time (ms)', ylabel = 'Acceleration (G)')
 
-            axs[1].set_xticks(np.arange(int(time_series[x[0]]), int(time_series[x[1]]), 5))
-            axs[2].set(xlabel='Frequency (Hz)', ylabel='Amplitude', title = 'FFT')
-            axs[2].set_xlim(0, 2000)
-            axs[2].set_xticks(np.arange(0, 2000, 200))
+                # axs[1].set_xticks(np.arange(int(time_series[x[0]]), int(time_series[x[1]]), 5))
+                axs[2].set(xlabel='Frequency (Hz)', ylabel='Amplitude', title = 'FFT')
+                axs[2].set_xlim(0, 2000)
+                axs[2].set_xticks(np.arange(0, 2000, 200))
 
-            N = len(time_series[x[0]:x[1]])
-            T = 1/SAMPLE_RATE
-            xf = fftfreq(N, T)[:N//2]
-            # xf = fftfreq(len(time_series[x[0]:x[1]]),1/SAMPLE_RATE)
-            yf = fft(main_acc[x[0]:x[1]])
-            yf_x = fft(acc_x[x[0]:x[1]])
-            yf_y = fft(acc_y[x[0]:x[1]])
-            yf_z = fft(acc_z[x[0]:x[1]])
+                N = len(time_series[x[0]:x[1]])
+                T = 1/SAMPLE_RATE
+                xf = fftfreq(N, T)[:N//2]
+                # xf = fftfreq(len(time_series[x[0]:x[1]]),1/SAMPLE_RATE)
+                yf = fft(main_acc[x[0]:x[1]])
+                yf_x = fft(acc_x[x[0]:x[1]])
+                yf_y = fft(acc_y[x[0]:x[1]])
+                yf_z = fft(acc_z[x[0]:x[1]])
 
-            yf_freq = round(xf[1:N // 2][np.argmax(np.abs(yf[1:N//2]))],1)
-            yfx_freq = round(xf[1:N // 2][np.argmax(np.abs(yf_x[1:N // 2]))], 1)
-            yfy_freq = round(xf[1:N // 2][np.argmax(np.abs(yf_y[1:N // 2]))], 1)
-            yfz_freq = round(xf[1:N // 2][np.argmax(np.abs(yf_z[1:N // 2]))], 1)
+                yf_freq = round(xf[1:N // 2][np.argmax(np.abs(yf[1:N//2]))],1)
+                yfx_freq = round(xf[1:N // 2][np.argmax(np.abs(yf_x[1:N // 2]))], 1)
+                yfy_freq = round(xf[1:N // 2][np.argmax(np.abs(yf_y[1:N // 2]))], 1)
+                yfz_freq = round(xf[1:N // 2][np.argmax(np.abs(yf_z[1:N // 2]))], 1)
 
-            main_acc_peak = round(np.max(abs(main_acc[x[0]:x[1]])),2)
-            accx_peak = round(np.max(abs(acc_x[x[0]:x[1]])), 2)
-            accy_peak = round(np.max(abs(acc_y[x[0]:x[1]])), 2)
-            accz_peak = round(np.max(abs(acc_z[x[0]:x[1]])), 2)
+                main_acc_peak = round(np.max(abs(main_acc[x[0]:x[1]])),2)
+                accx_peak = round(np.max(abs(acc_x[x[0]:x[1]])), 2)
+                accy_peak = round(np.max(abs(acc_y[x[0]:x[1]])), 2)
+                accz_peak = round(np.max(abs(acc_z[x[0]:x[1]])), 2)
 
-            main_acc_peak_loc = np.argmax(abs(main_acc[x[0]:x[1]]))
-            accx_peak_loc = np.argmax(abs(acc_x[x[0]:x[1]]))
-            accy_peak_loc = np.argmax(abs(acc_y[x[0]:x[1]]))
-            accz_peak_loc = np.argmax(abs(acc_z[x[0]:x[1]]))
+                main_acc_peak_loc = np.argmax(abs(main_acc[x[0]:x[1]]))
+                accx_peak_loc = np.argmax(abs(acc_x[x[0]:x[1]]))
+                accy_peak_loc = np.argmax(abs(acc_y[x[0]:x[1]]))
+                accz_peak_loc = np.argmax(abs(acc_z[x[0]:x[1]]))
 
-            main_acc_90_rise =  round(time_series[x[0]:x[1]][np.argmax(np.abs(main_acc[x[0]:x[1]])>= 0.9*main_acc_peak)] - time_series[x[0]+50],3)
-            accx_90_rise = round(time_series[x[0]:x[1]][np.argmax(np.abs(acc_x[x[0]:x[1]])>= 0.9*accx_peak)] - time_series[x[0]+50],3)
-            accy_90_rise = round(time_series[x[0]:x[1]][np.argmax(np.abs(acc_y[x[0]:x[1]])>= 0.9*accy_peak)] - time_series[x[0]+50],3)
-            accz_90_rise = round(time_series[x[0]:x[1]][np.argmax(np.abs(acc_z[x[0]:x[1]])>= 0.9*accz_peak)] - time_series[x[0]+50],3)
-            length = len(time_series[x[0] + main_acc_peak_loc:x[1]])
-            main_acc_90_fall = -1* round(time_series[x[0]+main_acc_peak_loc:x[1]][np.argmax(
-                np.abs(main_acc[x[0]+main_acc_peak_loc:x[1]])<= 0.9*main_acc_peak)] -
-                                     time_series[x[1] - np.argmax(np.abs(np.flip(main_acc[x[0]:x[1]]))>= 0.1*main_acc_peak)],3)
+                main_acc_90_rise =  round(time_series[x[0]:x[1]][np.argmax(np.abs(main_acc[x[0]:x[1]])>= 0.9*main_acc_peak)] - time_series[x[0]],3)
+                accx_90_rise = round(time_series[x[0]:x[1]][np.argmax(np.abs(acc_x[x[0]:x[1]])>= 0.9*accx_peak)] - time_series[x[0]],3)
+                accy_90_rise = round(time_series[x[0]:x[1]][np.argmax(np.abs(acc_y[x[0]:x[1]])>= 0.9*accy_peak)] - time_series[x[0]],3)
+                accz_90_rise = round(time_series[x[0]:x[1]][np.argmax(np.abs(acc_z[x[0]:x[1]])>= 0.9*accz_peak)] - time_series[x[0]],3)
+                length = len(time_series[x[0] + main_acc_peak_loc:x[1]])
+                main_acc_90_fall = -1* round(time_series[x[0]+main_acc_peak_loc:x[1]][np.argmax(
+                    np.abs(main_acc[x[0]+main_acc_peak_loc:x[1]])<= 0.9*main_acc_peak)] -
+                                         time_series[x[1] - np.argmax(np.abs(np.flip(main_acc[x[0]:x[1]]))>= 0.1*main_acc_peak)],3)
 
-                # -1* round(time_series[x[0]+main_acc_peak_loc] - time_series[x[1]-(np.argmax(
-                # np.abs(np.flip(main_acc[x[0]+main_acc_peak_loc:x[1]]))>= 0.9*main_acc_peak))],3)
+                    # -1* round(time_series[x[0]+main_acc_peak_loc] - time_series[x[1]-(np.argmax(
+                    # np.abs(np.flip(main_acc[x[0]+main_acc_peak_loc:x[1]]))>= 0.9*main_acc_peak))],3)
 
-            accx_90_fall = -1* round(time_series[x[0]+accx_peak_loc:x[1]][np.argmax(
-                np.abs(acc_x[x[0]+accx_peak_loc:x[1]])<= 0.9*accx_peak)] -
-                                     time_series[x[1] - np.argmax(np.abs(np.flip(acc_x[x[0]:x[1]]))>= 0.1*accx_peak)],3)
+                accx_90_fall = -1* round(time_series[x[0]+accx_peak_loc:x[1]][np.argmax(
+                    np.abs(acc_x[x[0]+accx_peak_loc:x[1]])<= 0.9*accx_peak)] -
+                                         time_series[x[1] - np.argmax(np.abs(np.flip(acc_x[x[0]:x[1]]))>= 0.1*accx_peak)],3)
 
-            accy_90_fall = -1* round(time_series[x[0]+accy_peak_loc:x[1]][np.argmax(
-                np.abs(acc_y[x[0]+accy_peak_loc:x[1]])<= 0.9*accy_peak)] -
-                                     time_series[x[1] - np.argmax(np.abs(np.flip(acc_y[x[0]:x[1]]))>= 0.1*accy_peak)],3)
+                accy_90_fall = -1* round(time_series[x[0]+accy_peak_loc:x[1]][np.argmax(
+                    np.abs(acc_y[x[0]+accy_peak_loc:x[1]])<= 0.9*accy_peak)] -
+                                         time_series[x[1] - np.argmax(np.abs(np.flip(acc_y[x[0]:x[1]]))>= 0.1*accy_peak)],3)
 
-            accz_90_fall = -1* round(time_series[x[0]+accz_peak_loc:x[1]][np.argmax(
-                np.abs(acc_z[x[0]+accz_peak_loc:x[1]])<= 0.9*accz_peak)] -
-                                     time_series[x[1] - np.argmax(np.abs(np.flip(acc_z[x[0]:x[1]]))>= 0.1*accz_peak)],3)
-
-
-            data = [
-                [f'{str(yf_freq)} Hz',f'{str(yfx_freq)} Hz',f'{str(yfy_freq)} Hz',f'{str(yfz_freq)} Hz'],
-                [f'{str(main_acc_peak)} G', f'{str(accx_peak)} G',f'{str(accy_peak)} G', f'{str(accz_peak)} G'],
-                [f'{str(main_acc_90_rise)} ms', f'{str(accx_90_rise)} ms', f'{str(accy_90_rise)} ms',
-                 f'{str(accz_90_rise)} ms'],
-                [f'{str(main_acc_90_fall)} ms', f'{str(accx_90_fall)} ms', f'{str(accy_90_fall)} ms',
-                 f'{str(accz_90_fall)} ms']
-            ]
-            columns = ['ROI','Opposite X','Opposite Y','Opposite Z']
-            row_labels = ['Frequency','Peak Acceleration','90% Rise Time','90% Fall Time']
-            table = axs[3].table(cellText=data,colLabels = columns,rowLabels = row_labels,loc='center',
-                                 colColours=['#DC373C','#419BD7','#55B473','#9B69AA'],cellLoc='center')
-            table.set_fontsize(10)
-            for key, cell in table.get_celld().items():
-                # cell.set_edgecolor('#FFFFFF')
-                # cell.set_facecolor('#636363')
-                cell._text.set_color('black')
-            if location == 'South':
-                label = 'ROI X'
-            else:
-                label = 'ROI Z'
-            axs[0].plot(time_series[start:end], main_acc[start:end], color='#83C8C0')
-            axs[0].plot(time_series[x[0]:x[1]], main_acc[x[0]:x[1]], color='#FFDE89')
+                accz_90_fall = -1* round(time_series[x[0]+accz_peak_loc:x[1]][np.argmax(
+                    np.abs(acc_z[x[0]+accz_peak_loc:x[1]])<= 0.9*accz_peak)] -
+                                         time_series[x[1] - np.argmax(np.abs(np.flip(acc_z[x[0]:x[1]]))>= 0.1*accz_peak)],3)
 
 
-            axs[1].plot(time_series[x[0]:x[1]],main_acc[x[0]:x[1]], color='#DC373C',label = label)
-            axs[1].plot(time_series[x[0]:x[1]], acc_x[x[0]:x[1]], color='#419BD7', label='Opposite X')
-            axs[1].plot(time_series[x[0]:x[1]], acc_y[x[0]:x[1]], color='#55B473', label='Opposite Y')
-            axs[1].plot(time_series[x[0]:x[1]], acc_z[x[0]:x[1]], color='#9B69AA', label='Opposite Z')
-            axs[1].legend()
-            axs[1].scatter(time_series[peaks], main_acc[peaks], color='#DC373C',marker = "o")
-            axs[1].scatter(time_series[peaks_x], acc_x[peaks_x], color='#419BD7', marker="o")
-            axs[1].scatter(time_series[peaks_y], acc_y[peaks_y], color='#55B473', marker="o")
-            axs[1].scatter(time_series[peaks_z], acc_z[peaks_z], color='#9B69AA', marker="o")
+                data = [
+                    [f'{str(yf_freq)} Hz',f'{str(yfx_freq)} Hz',f'{str(yfy_freq)} Hz',f'{str(yfz_freq)} Hz'],
+                    [f'{str(main_acc_peak)} G', f'{str(accx_peak)} G',f'{str(accy_peak)} G', f'{str(accz_peak)} G'],
+                    [f'{str(main_acc_90_rise)} ms', f'{str(accx_90_rise)} ms', f'{str(accy_90_rise)} ms',
+                     f'{str(accz_90_rise)} ms'],
+                    [f'{str(main_acc_90_fall)} ms', f'{str(accx_90_fall)} ms', f'{str(accy_90_fall)} ms',
+                     f'{str(accz_90_fall)} ms']
+                ]
+                columns = ['ROI','Opposite X','Opposite Y','Opposite Z']
+                row_labels = ['Frequency','Peak Acceleration','90% Rise Time','90% Fall Time']
+                table = axs[3].table(cellText=data,colLabels = columns,rowLabels = row_labels,loc='center',
+                                     colColours=['#DC373C','#419BD7','#55B473','#9B69AA'],cellLoc='center')
+                table.set_fontsize(10)
+                for key, cell in table.get_celld().items():
+                    # cell.set_edgecolor('#FFFFFF')
+                    # cell.set_facecolor('#636363')
+                    cell._text.set_color('black')
+                if location == 'South':
+                    label = 'ROI X'
+                else:
+                    label = 'ROI Z'
+                axs[0].plot(time_series, main_acc, color='#83C8C0')
+                axs[0].plot(time_series[x[0]:x[1]], main_acc[x[0]:x[1]], color='#FFDE89')
 
 
-            axs[2].plot(xf[1:N//2], np.abs(yf[1:N//2]), color='#DC373C')
-            axs[2].plot(xf[1:N // 2], np.abs(yf_x[1:N // 2]), color='#419BD7')
-            axs[2].plot(xf[1:N // 2], np.abs(yf_y[1:N // 2]), color='#55B473')
-            axs[2].plot(xf[1:N // 2], np.abs(yf_z[1:N // 2]), color='#9B69AA')
-
-            # mng = plt.get_current_fig_manager()
-            # ### works on Ubuntu??? >> did NOT working on windows
-            # # mng.resize(*mng.window.maxsize())
-            # mng.window.state('zoomed')
-            # ax.plot(time_series[x[0]:x[1]],main_acc[x[0]:x[1]], color='#DC373C')
-            save_file = os.path.join(folder,'processed',f'{name_topLevel}.png')
-            plt.savefig(save_file, bbox_inches='tight',dpi=100)
-            # plt.show()
+                axs[1].plot(time_series[x[0]-START_OFFSET:x[1]+END_OFFSET],main_acc[x[0]-START_OFFSET:x[1]+END_OFFSET], color='#DC373C',label = label)
+                axs[1].plot(time_series[x[0]-START_OFFSET:x[1]+END_OFFSET], acc_x[x[0]-START_OFFSET:x[1]+END_OFFSET], color='#419BD7', label='Opposite X')
+                axs[1].plot(time_series[x[0]-START_OFFSET:x[1]+END_OFFSET], acc_y[x[0]-START_OFFSET:x[1]+END_OFFSET], color='#55B473', label='Opposite Y')
+                axs[1].plot(time_series[x[0]-START_OFFSET:x[1]+END_OFFSET], acc_z[x[0]-START_OFFSET:x[1]+END_OFFSET], color='#9B69AA', label='Opposite Z')
+                axs[1].legend()
+                axs[1].scatter(time_series[peaks], main_acc[peaks], color='#DC373C',marker = "o")
+                axs[1].scatter(time_series[peaks_x], acc_x[peaks_x], color='#419BD7', marker="o")
+                axs[1].scatter(time_series[peaks_y], acc_y[peaks_y], color='#55B473', marker="o")
+                axs[1].scatter(time_series[peaks_z], acc_z[peaks_z], color='#9B69AA', marker="o")
 
 
+                axs[2].plot(xf[1:N//2], np.abs(yf[1:N//2]), color='#DC373C')
+                axs[2].plot(xf[1:N // 2], np.abs(yf_x[1:N // 2]), color='#419BD7')
+                axs[2].plot(xf[1:N // 2], np.abs(yf_y[1:N // 2]), color='#55B473')
+                axs[2].plot(xf[1:N // 2], np.abs(yf_z[1:N // 2]), color='#9B69AA')
+
+                # mng = plt.get_current_fig_manager()
+                # ### works on Ubuntu??? >> did NOT working on windows
+                # # mng.resize(*mng.window.maxsize())
+                # mng.window.state('zoomed')
+                # ax.plot(time_series[x[0]:x[1]],main_acc[x[0]:x[1]], color='#DC373C')
+                save_name = f'{name_topLevel}_pulse_{idx+1}of{len(index_array)}.png'
+                save_file = os.path.join(filepath,save_name)
+                plt.savefig(save_file, bbox_inches='tight',dpi=100)
+                plt.cla()
+                plt.clf()
+                # plt.show()
+            except Exception as e:
+                print(f'Unable to Process {name_topLevel} error {e}')
 
 
+    print(f'\n\n%%%%%%%%%%%%%%%%%%%%% DONE PROCESSING %%%%%%%%%%%%%%%%%%%%%%%%%%')
