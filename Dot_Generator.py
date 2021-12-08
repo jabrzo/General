@@ -24,7 +24,7 @@ def circleGenerator(width: float,height: float, dot_size_min: float,dot_size_max
     dot_area = math.pi *((dot_ave/2)*(dot_ave/2))
     step = round(random.uniform(0,height),2)
     row = step
-    num_dots = (area/dot_area)*0.55
+    num_dots = (area/dot_area)*0.45
     dots = None
     i = 0
     run = 0
@@ -102,7 +102,7 @@ if __name__ == '__main__':
     #
     # plt.show()
 
-
+    sensors = ['1M','2M','12M']
     desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
     filepath = os.path.join(desktop, 'DIC Pattern Outputs')
     # r"C:\Users\jbrzostowski\Desktop\Hinge Process"
@@ -111,28 +111,33 @@ if __name__ == '__main__':
 
     now = datetime.now()
     date_time = now.strftime("%Y_%m_%d_%H_%M_%S")
-
-    sensor = "2M"
+    #
+    sensor = None
+    while sensor is None:
+        sensor = input("Enter Sensor Size:\n(1) 1M (S-Series)\n(2) 2M (R-Series)\n(3) 12M (Aramis)\n>> ")
+        if sensor not in ['1','2','3','1M','2M','12M']:
+            print('Input not valid. Please select again')
 
     height = 43
     width = 42
-    if sensor == "12M":
+    if sensor == "3":
         sensor_width = 4096
         sensor_height = 3000
-    elif sensor == '1M':
+    elif sensor == '1':
         sensor_width = 1024
         sensor_height = 1024
-    elif sensor == '2M':
+    elif sensor == '2':
         sensor_width = 2048
         sensor_height = 2048
 
-    measuring_volume = 60
+    measuring_volume = None
+    measuring_volume = int(input("Enter Measuring Volume in mm\n>> "))
 
-    # dot_max = 5 * (measuring_volume/sensor_width)
-    # dot_min = 3 * (measuring_volume/sensor_width)
-    dot_max = .5
-    dot_min = .3
-    filename = f'{sensor}_{height}mm_x_{width}mm_' + date_time + '.svg'
+    dot_max = 5 * (measuring_volume/sensor_width)
+    dot_min = 3 * (measuring_volume/sensor_width)
+    # dot_max = .5
+    # dot_min = .3
+    filename = f'{sensors[int(sensor)-1]}_{measuring_volume}mm_measuring_volume_' + date_time + '.svg'
     file = os.path.join(filepath,filename)
     with open(file,'a') as f:
         # f.writelines('<?xml version="1.0" standalone="no"?>\n'
@@ -141,9 +146,9 @@ if __name__ == '__main__':
         #               'xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">"\n<path\nd="')
         f.writelines('<?xml version="1.0" standalone="no"?>\n'
                       '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"\n "">\n'
-                      f'<svg width="{width}mm" height="{height}mm" viewBox="{0} {0} {width} {height}"\n'
+                      f'<svg width="{measuring_volume}mm" height="{measuring_volume}mm" viewBox="{0} {0} {measuring_volume} {measuring_volume}"\n'
                       'xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">"\n<path\nd="')
-        gen = circleGenerator(width,height,dot_min,dot_max)
+        gen = circleGenerator(measuring_volume,measuring_volume,dot_min,dot_max)
 
         for run, string in gen:
             if run == 0:
