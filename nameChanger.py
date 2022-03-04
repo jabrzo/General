@@ -6,6 +6,7 @@ import os
 import csv
 import pandas
 from datetime import datetime
+import time
 
 def browseFile(dir=False):
     root = tk.Tk()
@@ -40,21 +41,6 @@ if __name__ == '__main__':
     while True:
         while value not in ['1','2']:
             value = input("Enter:\n(1) To change Labview Data Files\n(2) To append DIC filenames\n->")
-            # if value == '1':
-            #
-            #     # case_file = browseFile
-            #
-            #
-            #     df = pandas.read_csv(case_file)
-            #     case_names = df.iloc[:, 1].to_numpy(dtype=str)
-
-            # elif value =='2':
-            #     loc = None
-            #     while loc is None:
-            #         loc = input("Enter:\n(1) For Loc_80\n(2) For Loc_100\n(3) For Loc_120\n->")
-            #         if loc in ['1','2','3']:
-            #             location = locations[int(loc)-1]
-            #     break
             loc = None
             if value not in ['1','2']:
                 print("Input not recognized. Please select again.\n")
@@ -68,11 +54,14 @@ if __name__ == '__main__':
                     case_names = df[location].to_numpy(dtype=str)
 
 
-
+        time.sleep(.5)
         folder = browseFile(True)
         filenames = []
         time_stamps = []
 
+        log_files = []
+        log_file_times = []
+        sorted_log_files_idx = []
 
         if value == '1':
             for root, dirs, files in os.walk(folder):
@@ -83,12 +72,21 @@ if __name__ == '__main__':
                           time_stamps.append(a)
                           filenames.append(name)
                       except:
-                          pass
-               break
+                          if 'EQV12 Measurement' in name:
+                              log_file_times.append(datetime.strptime(name[18:-5], "%Y-%m-%d %H-%M-%S").timestamp())
+                              log_files.append(name)
 
+               break
+            sorted_log_files_idx = np.argsort(log_file_times)
             sorted_timestamp_idx= np.argsort(time_stamps)
-            for x in sorted_timestamp_idx:
-                new_name = case_names[x] + '_'+ filenames[x]
+            case_names = []
+            for x in sorted_log_files_idx:
+                df = pandas.read_csv(os.path.join(folder,log_files[x]))
+                case_names = case_names + list(df['Test_Case'])
+
+            for idx,x in enumerate(sorted_timestamp_idx):
+                # new_name = case_names[x] + '_' + filenames[x]
+                new_name = case_names[idx] + '_'+ datetime.fromtimestamp(time_stamps[x]).strftime("%Y-%m-%d %H-%M-%S") + '_SN.csv'
                 print(f"Re-Named {filenames[x]} to ->{new_name}")
                 os.rename(os.path.join(folder, filenames[x]), os.path.join(root, new_name))
 

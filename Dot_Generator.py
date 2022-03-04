@@ -1,7 +1,7 @@
-from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
-from ezdxf.addons.drawing import Frontend, RenderContext
-import ezdxf
-import dxf2svg
+# from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
+# from ezdxf.addons.drawing import Frontend, RenderContext
+# import ezdxf
+# import dxf2svg
 import numpy as np
 import os
 from datetime import datetime
@@ -62,7 +62,7 @@ def circleGenerator(width: float,height: float, dot_size_min: float,dot_size_max
             # d = math.sqrt((dy*dy)+(dx*dx))
 
             if not np.argmin(d>(allowable_intersection*(r+dots[:,2]))):
-                print(f'Percent of Dots: {(i / num_dots) * 100}%')
+                print(f'Percent of Dots: {round((i / num_dots) * 100,1)}%')
                 dots = np.vstack((dots,[x, y, r]))
                 i+=1
 
