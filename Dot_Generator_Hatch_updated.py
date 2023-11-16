@@ -13,8 +13,8 @@ import platform
 from cad_to_shapely import dxf,utils
 import shapely
 
-PERCENT_COVERAGE = 0.30
-ALLOWABLE_INTERSECTION = 1.05
+PERCENT_COVERAGE = 0.425
+ALLOWABLE_INTERSECTION = 1.1
 
 RANDOMIZE_SPECKLE = False
 
@@ -34,7 +34,7 @@ def dxf2pattern(polygons,filename, dot_size_min: float, dot_size_max: float):
 
     dot_ave = (dot_size_min +dot_size_max)/2
     dot_area = math.pi *((dot_max/2)**2)
-    step = round(random.uniform(0,height),2)
+    # step = round(random.uniform(0,height),2)
 
     i = 0
 
@@ -103,14 +103,25 @@ def dxf2pattern(polygons,filename, dot_size_min: float, dot_size_max: float):
                 r = round((dot_size_max / 2), 3)
             else:
                 r = round((dot_size_max/2),3)
-            p = utils.point_in_polygon(new_offsets,limit=100000)
+            p = utils.point_in_polygon(new_offsets,limit=1000000)
             x, y = p.xy
 
-            x = x[0]
-            y = y[0]
+            x = round(x[0],5)
+            y = round(y[0],5)
             if dots is None:
                 dots = np.array([[x, y, r]])
+                i += 1
+                edge_path.append(hatch.paths.add_edge_path(flags=ezdxf.const.BOUNDARY_PATH_DEFAULT))
+                edge_path[-1].add_arc(
+                    center=(x, y),
+                    radius=r,
+                    start_angle=0,
+                    end_angle=360
+                )
+
+                print(f'{i} out of {num_dots}')
                 continue
+
             dx = x - dots[:,0]
             dy = y - dots[:,1]
 
@@ -118,7 +129,7 @@ def dxf2pattern(polygons,filename, dot_size_min: float, dot_size_max: float):
             diff = d + np.min(r+dots[:,2])
 
 
-            if not np.argmin(d>(ALLOWABLE_INTERSECTION*(r_max+dots[:,2]))):
+            if all(d>(ALLOWABLE_INTERSECTION*(r_max+r_max))):
                 dots = np.vstack((dots, [x, y, r]))
 
                 i += 1
@@ -172,8 +183,7 @@ if __name__ == '__main__':
         if sensor not in ['1','2','3','1M','2M','12M']:
             print('Input not valid. Please select again')
 
-    height = 43
-    width = 42
+
     if sensor == "3":
         sensor_width = 4096
         sensor_height = 3000
